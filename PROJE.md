@@ -103,12 +103,13 @@ açılabilecek şekilde kurulur.
 - Yeni sohbet başlatmak için Keşfet ile aynı filtreleme mantığı
 
 ### Profil
-- **Kullanıcı adı** (benzersiz, kayıtta belirlenir) ve **görünen ad** (değiştirilebilir, tekrar
-  edebilir) — ikisi ayrı alanlar. Kullanıcı adı profil bağlantısı/kimlik için, hikaye
-  görüntüleyicide ve profilde görünür ve tıklanabilir
+- **Kullanıcı adı** (benzersiz, kayıtta belirlenir) ve **isim, soyisim** (değiştirilebilir) —
+  ayrı alanlar. Kullanıcı adı profil bağlantısı/kimlik için, hikaye görüntüleyicide ve profilde
+  görünür ve tıklanabilir
 - Profil fotoğrafı yükleme
 - Biyografi
-- Yaş, cinsiyet, ülke/şehir (Keşfet filtreleri buna bağlı)
+- Yaş, cinsiyet, ülke/şehir (Keşfet filtreleri buna bağlı) — ülke Türkiye dışındaysa şehir
+  alanı boş bırakılır (yalnızca Türkiye için il listesi sunuluyor)
 - İlgi alanı/etiket sistemi
 - Takipçi/takip sayısı
 - Şifre değiştirme

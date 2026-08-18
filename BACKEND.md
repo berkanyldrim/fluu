@@ -29,12 +29,16 @@ users
   # gerçekten silmek karşı taraftaki sohbet geçmişini de kırar. Detay: "Hesap silme" bölümü.
 
 profiles
-  user_id, username (unique, indexed), display_name, bio, avatar_url, age, gender, country,
-  city, interests[], is_verified
+  user_id, username (unique, indexed), first_name, last_name, bio, avatar_url, age, gender,
+  country, city (nullable), interests[], is_verified
   # username: kayıt sırasında girilir, benzersiz (unique constraint + case-insensitive index).
   # Keşfet'te hikaye kartlarında gösterilmez ama hikaye görüntüleyicide ve profilde görünür,
-  # tıklanınca o kullanıcının profiline gider. display_name'den farklı — display_name
-  # tekrar edebilir/değiştirilebilir, username kimlik/URL amaçlı benzersiz kalır.
+  # tıklanınca o kullanıcının profiline gider. first_name/last_name'den farklı — bunlar
+  # değiştirilebilir, username kimlik/URL amaçlı benzersiz kalır.
+  # city: sadece country="Türkiye" ise dolu olabilir (frontend'de 81 illik sabit bir listeden
+  # seçilir), başka ülke seçilince null kaydedilir — client'tan gelen değere güvenmeden bu kural
+  # sunucu tarafında da doğrulanır (bkz. PROJE_KURALLARI.md, "client'tan gelen hiçbir veri
+  # doğrulanmadan kullanılmaz").
 
 stories
   id, user_id, media_url, media_type, created_at, expires_at (created_at + 24h),

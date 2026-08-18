@@ -11,29 +11,15 @@ export function isValidUsernameFormat(username: string): boolean {
   return USERNAME_PATTERN.test(username);
 }
 
-const BIRTH_DATE_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 const MIN_AGE = 18;
 
-export function parseBirthDate(input: string): Date | null {
-  const match = input.match(BIRTH_DATE_PATTERN);
-  if (!match) return null;
-
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  const isValidCalendarDate =
-    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-
-  return isValidCalendarDate ? date : null;
-}
-
 export function isAtLeastMinAge(birthDate: Date, today: Date = new Date()): boolean {
-  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+  // Yerel takvim günleri karşılaştırılır (BirthDatePicker de tarihi yerel saatle oluşturuyor);
+  // UTC getter'ları kullanmak gün sınırlarında (özellikle UTC+ dilimlerde) yanlış yaş hesaplardı.
+  let age = today.getFullYear() - birthDate.getFullYear();
   const hasHadBirthdayThisYear =
-    today.getUTCMonth() > birthDate.getUTCMonth() ||
-    (today.getUTCMonth() === birthDate.getUTCMonth() && today.getUTCDate() >= birthDate.getUTCDate());
+    today.getMonth() > birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
   if (!hasHadBirthdayThisYear) age -= 1;
   return age >= MIN_AGE;
 }

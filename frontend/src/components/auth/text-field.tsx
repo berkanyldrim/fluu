@@ -6,9 +6,10 @@ import { useTheme } from '@/hooks/use-theme';
 
 type TextFieldProps = TextInputProps & {
   rightSlot?: ReactNode;
+  invalid?: boolean;
 };
 
-export function TextField({ style, rightSlot, ...rest }: TextFieldProps) {
+export function TextField({ style, rightSlot, invalid, ...rest }: TextFieldProps) {
   const theme = useTheme();
 
   return (
@@ -16,7 +17,8 @@ export function TextField({ style, rightSlot, ...rest }: TextFieldProps) {
       <TextInput
         style={[
           styles.input,
-          { backgroundColor: theme.softBlue, color: theme.text },
+          { backgroundColor: theme.softBlue, color: theme.text, borderColor: 'transparent' },
+          invalid ? { borderColor: theme.error } : null,
           rightSlot ? styles.inputWithSlot : null,
           style,
         ]}
@@ -37,6 +39,7 @@ const styles = StyleSheet.create({
     fontFamily: NunitoFonts.semiBold,
     fontSize: 14.5,
     borderRadius: Radius.control,
+    borderWidth: 1.5,
     paddingVertical: 15,
     paddingHorizontal: 16,
   },
