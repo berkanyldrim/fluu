@@ -32,6 +32,12 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Fluu, profil fotoğrafı seçebilmen için galerine erişmek istiyor."
+        }
       ]
     ],
     "experiments": {
