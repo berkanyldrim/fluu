@@ -4,7 +4,8 @@
 
 - Node.js + TypeScript (Fastify — Express'e göre daha performanslı)
 - PostgreSQL (çok alanlı filtreleme — ülke/cinsiyet/yaş/tarih — için ideal)
-- Prisma veya Drizzle (ORM — ham SQL string concat asla)
+- Drizzle (ORM — ham SQL string concat asla; şema `backend/src/db/schema.ts`, migration'lar
+  `backend/drizzle/`)
 - Socket.io + Redis adapter (realtime sohbet, yatay ölçeklenebilir)
 - Redis (cache + Socket.io adapter + rate limiting)
 - Cloudflare R2 (medya depolama — egress $0)
@@ -18,7 +19,32 @@ Tek servis hem REST (sosyal özellikler: profil, hikaye, keşfet, engelleme) hem
 aynı R2 bucket — ayrı bir sistem kurmuyoruz, sadece kod içinde katman ayrımı (REST route'ları
 vs Socket.io handler'ları).
 
+## Yerel geliştirme
+
+Backend'in kendisi (Fastify süreci) Docker'da **çalışmaz** — `npm run dev` ile doğrudan native
+çalışır, hızlı reload için. Sadece durum tutan bağımlılıklar (Postgres, Redis) Docker Compose
+ile ayağa kalkar:
+
+```bash
+cd backend
+cp .env.example .env        # JWT_SECRET'i doldur (en az 32 karakter, örn. `openssl rand -hex 32`)
+docker compose up -d        # Postgres (5432) + Redis (6379)
+npm install
+npm run db:migrate          # şemayı uygula (yeni migration için: npm run db:generate)
+npm run dev                 # http://localhost:3000/health
+```
+
+`docker-compose.yml`'deki Postgres kullanıcı/şifre/db adı (`fluu`/`fluu`/`fluu`)
+`.env.example`'daki `DATABASE_URL` ile eşleşecek şekilde ayarlı. Prod/staging'de backend de
+container'a alınır (bkz. `PROJE_KURALLARI.md` "Docker container'lar root olmayan bir
+kullanıcıyla çalışır") — o Dockerfile bu doküman ilerledikçe eklenecek, şu an için yalnızca
+yerel geliştirme akışı burada.
+
 ## Veritabanı şeması (taslak)
+
+Aşağıdaki `users`, `profiles`, `refresh_tokens`, `email_otps` artık taslak değil — gerçek
+Drizzle şeması olarak `backend/src/db/schema.ts`'te tanımlı ve migration'ları uygulanmış
+durumda. Geri kalan tablolar (stories, chats, messages, ...) henüz sadece taslak.
 
 ```
 users
@@ -29,16 +55,30 @@ users
   # gerçekten silmek karşı taraftaki sohbet geçmişini de kırar. Detay: "Hesap silme" bölümü.
 
 profiles
-  user_id, username (unique, indexed), first_name, last_name, bio, avatar_url, age, gender,
-  country, city (nullable), interests[], is_verified
+  user_id, username (unique, indexed), first_name, last_name, bio, avatar_url, birth_date,
+  gender, country, city (nullable), interests[], is_verified
   # username: kayıt sırasında girilir, benzersiz (unique constraint + case-insensitive index).
   # Keşfet'te hikaye kartlarında gösterilmez ama hikaye görüntüleyicide ve profilde görünür,
   # tıklanınca o kullanıcının profiline gider. first_name/last_name'den farklı — bunlar
   # değiştirilebilir, username kimlik/URL amaçlı benzersiz kalır.
+  # birth_date: statik bir "age" alanı değil — yaş her okumada birth_date'ten hesaplanır, aksi
+  # halde her kullanıcı için yılda bir elle güncelleme gerekirdi.
   # city: sadece country="Türkiye" ise dolu olabilir (frontend'de 81 illik sabit bir listeden
   # seçilir), başka ülke seçilince null kaydedilir — client'tan gelen değere güvenmeden bu kural
   # sunucu tarafında da doğrulanır (bkz. PROJE_KURALLARI.md, "client'tan gelen hiçbir veri
   # doğrulanmadan kullanılmaz").
+
+refresh_tokens
+  id, user_id, token_hash (unique), expires_at, revoked_at (nullable), created_at
+  # Refresh token'ın kendisi asla düz metin saklanmaz, sadece hash'i (bkz. "Auth & oturum").
+  # revoked_at doluysa token artık geçersiz — rotasyonda eskisi revoke edilip yenisi yazılır.
+
+email_otps
+  id, user_id, code_hash, purpose (register/reset), expires_at, consumed_at (nullable),
+  created_at
+  # Kod da hash'lenerek saklanır. purpose=register kayıt sonrası e-posta doğrulama,
+  # purpose=reset şifremi unuttum akışı — aynı verify-otp ekranı ikisinde de kullanılıyor
+  # (bkz. FRONTEND.md), backend'de hangi akış olduğunu bu alan ayırt eder.
 
 stories
   id, user_id, media_url, media_type, created_at, expires_at (created_at + 24h),
