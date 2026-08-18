@@ -134,7 +134,13 @@ DB constraint yerine API katmanında iş kuralı olarak.
 **REST**
 - `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`
 - `POST /auth/send-verification-otp`, `POST /auth/verify-email` — kayıt sonrası e-posta
-  doğrulanmadan ana uygulamaya erişim yok, her istekte `is_email_verified` kontrolü yapılır
+  doğrulanmadan ana uygulamaya erişim yok, her istekte `is_email_verified` kontrolü yapılır.
+  `verify-email` iki amaçla (`purpose`) çalışır: `register`'da doğrudan `is_email_verified`'ı
+  true yapar; `reset`'te kısa ömürlü (10dk) bir `resetToken` döner
+- `POST /auth/reset-password` — `verify-email`'den (`purpose=reset`) dönen `resetToken` +
+  yeni şifre alır, şifreyi günceller ve o kullanıcının tüm mevcut refresh token'larını iptal
+  eder. FRONTEND.md'deki `reset-password.tsx` ekranını karşılar, ilk API listesinde yoktu,
+  akışı tamamlamak için eklendi
 - `GET/PATCH /users/me`
 - `DELETE /users/me` — **hard delete değil, anonymize** (bkz. "Hesap silme" notu aşağıda)
 - `GET /users/check-username?u=xxx` — anlık benzersizlik kontrolü, onboarding'de yazarken
