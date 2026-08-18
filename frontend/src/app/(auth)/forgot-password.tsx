@@ -4,21 +4,35 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { FieldError } from '@/components/auth/field-error';
 import { GhostButton } from '@/components/auth/ghost-button';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { TextField } from '@/components/auth/text-field';
 import { useTheme } from '@/hooks/use-theme';
+import { ApiError } from '@/lib/api-client';
+import { sendResetOtpRequest } from '@/lib/auth-api';
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
   const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
 
-  const canSubmit = email.trim().length > 0;
+  const canSubmit = email.trim().length > 0 && !loading;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!canSubmit) return;
-    // TODO: step 4 — POST /auth/send-verification-otp ile değiştirilecek.
-    router.push({ pathname: '/verify-otp', params: { purpose: 'reset', email } });
+    setError(undefined);
+    setLoading(true);
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      await sendResetOtpRequest(normalizedEmail);
+      router.push({ pathname: '/verify-otp', params: { purpose: 'reset', email: normalizedEmail } });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -39,7 +53,8 @@ export default function ForgotPasswordScreen() {
         keyboardType="email-address"
         textContentType="emailAddress"
       />
-      <PrimaryButton title="Kod Gönder" onPress={handleSubmit} disabled={!canSubmit} />
+      <FieldError message={error} />
+      <PrimaryButton title="Kod Gönder" onPress={handleSubmit} disabled={!canSubmit} loading={loading} />
       <GhostButton title="Girişe dön" onPress={() => router.push('/login')} />
     </AuthScreen>
   );

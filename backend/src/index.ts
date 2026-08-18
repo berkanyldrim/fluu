@@ -1,3 +1,4 @@
+import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
 
@@ -9,11 +10,21 @@ import usersRoutes from "./routes/users.js";
 
 const app = Fastify({ logger: true });
 
+// TODO: prod'a çıkmadan önce origin: true kaldırılıp gerçek app domain/scheme'iyle
+// whitelist'e çevrilecek (bkz. BACKEND.md "CORS whitelist"). Şu an sadece Expo web (localhost,
+// değişken port) + native (Origin header göndermez, CORS'tan etkilenmez) dev ortamı var.
+// methods'i elle belirtmek gerekiyor — @fastify/cors'un varsayılanı sadece GET,HEAD,POST,
+// PATCH/DELETE kullanan /users/me gibi route'larda preflight'ı sessizce reddediyordu.
+await app.register(cors, { origin: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'] });
+
 await app.register(rateLimit, {
   global: true,
   max: 100,
   timeWindow: "1 minute",
   redis,
+  errorResponseBuilder: (_request, context) => ({
+    error: `Çok fazla istek gönderdin, ${context.after} sonra tekrar dene`,
+  }),
 });
 
 await app.register(authPlugin);

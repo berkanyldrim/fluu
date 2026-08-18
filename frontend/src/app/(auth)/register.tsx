@@ -8,18 +8,22 @@ import { FieldError } from '@/components/auth/field-error';
 import { PasswordField } from '@/components/auth/password-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { TextField } from '@/components/auth/text-field';
+import { ApiError } from '@/lib/api-client';
 import { registerSchema } from '@/schemas/auth';
+import { useAuthStore } from '@/store/auth-store';
 
 type FormErrors = Partial<Record<'email' | 'password' | 'passwordConfirm' | 'acceptedTerms', string>>;
 
 export default function RegisterScreen() {
+  const register = useAuthStore((state) => state.register);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const result = registerSchema.safeParse({ email, password, passwordConfirm, acceptedTerms });
 
     if (!result.success) {
@@ -34,9 +38,16 @@ export default function RegisterScreen() {
     }
 
     setErrors({});
-    // TODO: step 4 — POST /auth/register + POST /auth/send-verification-otp ile
-    // değiştirilecek. Şimdilik OTP ekranına e-postayla birlikte yönlendiriyoruz.
-    router.push({ pathname: '/verify-otp', params: { purpose: 'register', email } });
+    setLoading(true);
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      await register(normalizedEmail, password);
+      router.push({ pathname: '/verify-otp', params: { purpose: 'register', email: normalizedEmail } });
+    } catch (err) {
+      setErrors({ email: err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene' });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -94,7 +105,7 @@ export default function RegisterScreen() {
       />
       <FieldError message={errors.acceptedTerms} />
 
-      <PrimaryButton title="Kayıt Ol" onPress={handleSubmit} />
+      <PrimaryButton title="Kayıt Ol" onPress={handleSubmit} loading={loading} />
     </AuthScreen>
   );
 }

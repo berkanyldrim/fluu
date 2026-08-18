@@ -15,11 +15,15 @@ import { NunitoFonts } from '@/constants/theme';
 import { COUNTRIES } from '@/data/countries';
 import { TURKEY_CITIES } from '@/data/turkey-cities';
 import { useTheme } from '@/hooks/use-theme';
+import { ApiError } from '@/lib/api-client';
+import { checkUsernameRequest, updateProfileRequest } from '@/lib/auth-api';
 import { personalInfoSchema } from '@/schemas/auth';
+import { useAuthStore } from '@/store/auth-store';
 import { isValidUsernameFormat } from '@/utils/auth-validation';
 
 const TOTAL_STEPS = 3;
 const TURKEY = 'Türkiye';
+const USERNAME_CHECK_DEBOUNCE_MS = 400;
 
 const GENDER_OPTIONS = [
   { label: 'Kadın', value: 'female' },
@@ -31,8 +35,18 @@ type FormErrors = Partial<
   Record<'firstName' | 'lastName' | 'username' | 'birthDate' | 'gender' | 'country' | 'city', string>
 >;
 
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function OnboardingPersonalInfoScreen() {
   const theme = useTheme();
+  const authorizedRequest = useAuthStore((state) => state.authorizedRequest);
+  const setProfile = useAuthStore((state) => state.setProfile);
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
@@ -41,15 +55,32 @@ export default function OnboardingPersonalInfoScreen() {
   const [country, setCountry] = useState<string | null>(null);
   const [city, setCity] = useState<string | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [submitting, setSubmitting] = useState(false);
 
-  const usernameFormatValid = username.length > 0 && isValidUsernameFormat(username);
-  // TODO: step 4 — burada GET /users/check-username ile debounce'lu gerçek
-  // benzersizlik kontrolü yapılacak. Şimdilik sadece format doğrulanıyor.
-  const [usernameAvailable, setUsernameAvailable] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
 
   useEffect(() => {
-    setUsernameAvailable(usernameFormatValid);
-  }, [usernameFormatValid]);
+    if (!username || !isValidUsernameFormat(username)) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    let cancelled = false;
+    setUsernameStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const { available } = await checkUsernameRequest(username);
+        if (!cancelled) setUsernameStatus(available ? 'available' : 'taken');
+      } catch {
+        if (!cancelled) setUsernameStatus('idle');
+      }
+    }, USERNAME_CHECK_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [username]);
 
   function handleCountryChange(value: string) {
     setCountry(value);
@@ -57,7 +88,7 @@ export default function OnboardingPersonalInfoScreen() {
     setErrors((current) => ({ ...current, country: undefined, city: undefined }));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const result = personalInfoSchema.safeParse({
       firstName,
       lastName,
@@ -82,10 +113,36 @@ export default function OnboardingPersonalInfoScreen() {
       return;
     }
 
+    if (usernameStatus === 'taken') {
+      setErrors((current) => ({ ...current, username: 'Bu kullanıcı adı alınmış' }));
+      return;
+    }
+
     setErrors({});
-    // TODO: step 4 — PATCH /users/me ile profil bilgileri kaydedilip (tabs) köküne
-    // yönlendirilecek.
-    router.replace('/');
+    setSubmitting(true);
+    try {
+      const { profile } = await authorizedRequest((token) =>
+        updateProfileRequest(token, {
+          firstName: result.data.firstName,
+          lastName: result.data.lastName,
+          username: result.data.username,
+          birthDate: toIsoDate(result.data.birthDate),
+          gender: result.data.gender,
+          country: result.data.country,
+          city: result.data.city,
+        }),
+      );
+      setProfile(profile);
+      router.replace('/');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setErrors({ username: err.message });
+      } else {
+        setErrors({ username: err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene' });
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -125,14 +182,26 @@ export default function OnboardingPersonalInfoScreen() {
           }}
           autoCapitalize="none"
           autoCorrect={false}
-          invalid={Boolean(errors.username)}
-          rightSlot={usernameAvailable ? <Ionicons name="checkmark-circle" size={18} color="#1EA362" /> : null}
+          invalid={Boolean(errors.username) || usernameStatus === 'taken'}
+          rightSlot={
+            usernameStatus === 'available' ? (
+              <Ionicons name="checkmark-circle" size={18} color="#1EA362" />
+            ) : usernameStatus === 'taken' ? (
+              <Ionicons name="close-circle" size={18} color={theme.error} />
+            ) : null
+          }
         />
         {errors.username ? (
           <FieldError message={errors.username} />
-        ) : username.length > 0 && usernameAvailable ? (
+        ) : usernameStatus === 'available' ? (
           <Text style={[styles.fieldHint, { color: '#1EA362' }]}>
             Bu kullanıcı adı uygun. Benzersiz olmalı, profilinde görünür.
+          </Text>
+        ) : usernameStatus === 'taken' ? (
+          <Text style={[styles.fieldHint, { color: theme.error }]}>Bu kullanıcı adı alınmış.</Text>
+        ) : username.length > 0 && !isValidUsernameFormat(username) ? (
+          <Text style={[styles.fieldHint, { color: theme.error }]}>
+            En az 3, en fazla 20 karakter; sadece küçük harf, rakam ve _ kullanabilirsin.
           </Text>
         ) : null}
       </View>
@@ -185,7 +254,7 @@ export default function OnboardingPersonalInfoScreen() {
         </>
       ) : null}
 
-      <PrimaryButton title="Fluu'ya Başla" onPress={handleSubmit} />
+      <PrimaryButton title="Fluu'ya Başla" onPress={handleSubmit} loading={submitting} />
     </AuthScreen>
   );
 }
