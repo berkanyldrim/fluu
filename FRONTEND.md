@@ -81,6 +81,7 @@ app/
     register.tsx
     forgot-password.tsx
     verify-otp.tsx          # kayıt sonrası e-posta doğrulama VE şifre sıfırlama, ikisinde de kullanılır
+    reset-password.tsx     # şifre sıfırlama akışında verify-otp sonrası yeni şifre belirleme
     onboarding/
       photo.tsx              # profil fotoğrafı, atlanabilir
       personal-info.tsx      # görünen ad, doğum tarihi, cinsiyet, ülke/şehir — 18+ gate burada
@@ -106,6 +107,11 @@ app/
 (atlanabilir) → `onboarding/personal-info` (zorunlu, 18+ gate + Keşfet filtrelerinin dayandığı
 alanlar burada toplanır) → `(tabs)`. Adım göstergesi (üstte 3 nokta) her ekranda ilerlemeyi
 gösterir. Görsel referans: `fluu-auth-concept.html`.
+
+**Şifremi unuttum akışı sırası:** `forgot-password` → `verify-otp` (`purpose=reset` route
+param'ıyla) → `reset-password` (yeni şifre + tekrar, başarı sonrası `login`'e döner) → `login`.
+`reset-password.tsx` concept dosyasında yoktu, akışı tamamlamak için eklendi — diğer auth
+ekranlarıyla aynı bileşenleri (`PasswordField`, `PrimaryButton`, `GhostButton`) kullanır.
 
 ## Bileşen gereksinimleri
 
