@@ -3,12 +3,16 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { FieldError } from '@/components/auth/field-error';
 import { GhostButton } from '@/components/auth/ghost-button';
 import { LinkText } from '@/components/auth/link-text';
 import { OtpInput } from '@/components/auth/otp-input';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { NunitoFonts } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ApiError } from '@/lib/api-client';
+import { sendRegisterOtpRequest, sendResetOtpRequest, verifyRegisterOtpRequest, verifyResetOtpRequest } from '@/lib/auth-api';
+import { useAuthStore } from '@/store/auth-store';
 import { maskEmail } from '@/utils/auth-validation';
 
 const OTP_LENGTH = 6;
@@ -17,8 +21,14 @@ const RESEND_COOLDOWN_SECONDS = 47;
 export default function VerifyOtpScreen() {
   const theme = useTheme();
   const { purpose, email } = useLocalSearchParams<{ purpose?: string; email?: string }>();
+  const isReset = purpose === 'reset';
+  const authorizedRequest = useAuthStore((state) => state.authorizedRequest);
+  const markEmailVerified = useAuthStore((state) => state.markEmailVerified);
+
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_SECONDS);
+  const [error, setError] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -27,25 +37,46 @@ export default function VerifyOtpScreen() {
   }, [secondsLeft]);
 
   const code = digits.join('');
-  const canSubmit = code.length === OTP_LENGTH;
+  const canSubmit = code.length === OTP_LENGTH && !loading;
   const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const seconds = String(secondsLeft % 60).padStart(2, '0');
 
-  function handleVerify() {
+  async function handleVerify() {
     if (!canSubmit) return;
-    // TODO: step 4 — POST /auth/verify-email (purpose=register) ile değiştirilecek.
-    if (purpose === 'reset') {
-      router.push({ pathname: '/reset-password', params: { email } });
-    } else {
-      router.push('/onboarding/photo');
+    setError(undefined);
+    setLoading(true);
+    try {
+      if (isReset) {
+        if (!email) throw new ApiError(400, 'E-posta bulunamadı, baştan dene');
+        const { resetToken } = await verifyResetOtpRequest(email, code);
+        router.push({ pathname: '/reset-password', params: { resetToken } });
+      } else {
+        await authorizedRequest((token) => verifyRegisterOtpRequest(token, code));
+        markEmailVerified();
+        router.push('/onboarding/photo');
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene');
+    } finally {
+      setLoading(false);
     }
   }
 
-  function handleResend() {
+  async function handleResend() {
     if (secondsLeft > 0) return;
-    // TODO: step 4 — POST /auth/send-verification-otp ile değiştirilecek.
-    setSecondsLeft(RESEND_COOLDOWN_SECONDS);
-    setDigits(Array(OTP_LENGTH).fill(''));
+    setError(undefined);
+    try {
+      if (isReset) {
+        if (!email) throw new ApiError(400, 'E-posta bulunamadı, baştan dene');
+        await sendResetOtpRequest(email);
+      } else {
+        await authorizedRequest((token) => sendRegisterOtpRequest(token));
+      }
+      setSecondsLeft(RESEND_COOLDOWN_SECONDS);
+      setDigits(Array(OTP_LENGTH).fill(''));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene');
+    }
   }
 
   return (
@@ -53,6 +84,7 @@ export default function VerifyOtpScreen() {
       title="Kodu Doğrula"
       description={`${email ? maskEmail(email) : 'e-posta adresine'} gönderdiğimiz kodu gir.`}>
       <OtpInput value={digits} onChange={setDigits} />
+      <FieldError message={error} />
       {secondsLeft > 0 ? (
         <Text style={[styles.timer, { color: theme.muted }]}>
           Kodu tekrar gönder <Text style={styles.timerDisabled}>({minutes}:{seconds})</Text>
@@ -62,7 +94,7 @@ export default function VerifyOtpScreen() {
           <LinkText title="Kodu tekrar gönder" onPress={handleResend} />
         </View>
       )}
-      <PrimaryButton title="Doğrula" onPress={handleVerify} disabled={!canSubmit} />
+      <PrimaryButton title="Doğrula" onPress={handleVerify} disabled={!canSubmit} loading={loading} />
       <GhostButton title="Girişe dön" onPress={() => router.push('/login')} />
     </AuthScreen>
   );

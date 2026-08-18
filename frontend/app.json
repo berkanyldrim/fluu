@@ -38,7 +38,8 @@
         {
           "photosPermission": "Fluu, profil fotoğrafı seçebilmen için galerine erişmek istiyor."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
