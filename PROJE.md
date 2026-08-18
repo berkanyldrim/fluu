@@ -165,6 +165,7 @@ Shuffle/rastgele eşleştirme, reaksiyonlar, Fluu Plus (aylık abonelik), otomat
 
 ## İlgili dokümanlar
 
+- `RUNNING.md` — projeyi yerelde çalıştırma (backend + frontend, adım adım)
 - `FRONTEND.md` — React Native/Expo mimarisi, tasarım sistemi, bileşenler
 - `BACKEND.md` — API, veritabanı, güvenlik, performans, medya pipeline
 - `PROJE_KURALLARI.md` — kodlama ve commit kuralları
