@@ -7,24 +7,42 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+import designTokens from '../../../design/tokens.json';
+
+// Fluu brand tokens (PROJE.md renk paleti) — canonical values live in design/tokens.json,
+// this file only maps them into the app's Colors/Fonts/Radius shape.
+export const FluuColors = {
+  light: designTokens.color.light,
+  dark: designTokens.color.dark,
+} as const;
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    ...FluuColors.light,
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    ...FluuColors.dark,
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+export const NunitoWeights = designTokens.typography.weights;
+
+export const NunitoFonts = {
+  regular: 'Nunito_400Regular',
+  semiBold: 'Nunito_600SemiBold',
+  bold: 'Nunito_700Bold',
+  extraBold: 'Nunito_800ExtraBold',
+} as const;
+
+export const Radius = designTokens.radius;
 
 export const Fonts = Platform.select({
   ios: {
