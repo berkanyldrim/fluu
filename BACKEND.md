@@ -21,24 +21,14 @@ vs Socket.io handler'ları).
 
 ## Yerel geliştirme
 
-Backend'in kendisi (Fastify süreci) Docker'da **çalışmaz** — `npm run dev` ile doğrudan native
-çalışır, hızlı reload için. Sadece durum tutan bağımlılıklar (Postgres, Redis) Docker Compose
-ile ayağa kalkar:
-
-```bash
-cd backend
-cp .env.example .env        # JWT_SECRET'i doldur (en az 32 karakter, örn. `openssl rand -hex 32`)
-docker compose up -d        # Postgres (5432) + Redis (6379)
-npm install
-npm run db:migrate          # şemayı uygula (yeni migration için: npm run db:generate)
-npm run dev                 # http://localhost:3000/health
-```
-
-`docker-compose.yml`'deki Postgres kullanıcı/şifre/db adı (`fluu`/`fluu`/`fluu`)
-`.env.example`'daki `DATABASE_URL` ile eşleşecek şekilde ayarlı. Prod/staging'de backend de
-container'a alınır (bkz. `PROJE_KURALLARI.md` "Docker container'lar root olmayan bir
-kullanıcıyla çalışır") — o Dockerfile bu doküman ilerledikçe eklenecek, şu an için yalnızca
-yerel geliştirme akışı burada.
+Adım adım çalıştırma talimatları (backend + frontend birlikte) artık tek kaynak olarak
+`RUNNING.md`'de. Özet: backend'in kendisi (Fastify süreci) Docker'da **çalışmaz** — `npm run dev`
+ile doğrudan native çalışır, hızlı reload için. Sadece durum tutan bağımlılıklar (Postgres,
+Redis) `docker compose up -d` ile ayağa kalkar; `docker-compose.yml`'deki Postgres
+kullanıcı/şifre/db adı (`fluu`/`fluu`/`fluu`) `.env.example`'daki `DATABASE_URL` ile eşleşecek
+şekilde ayarlı. Prod/staging'de backend de container'a alınır (bkz. `PROJE_KURALLARI.md`
+"Docker container'lar root olmayan bir kullanıcıyla çalışır") — o Dockerfile bu doküman
+ilerledikçe eklenecek, şu an için yalnızca yerel geliştirme akışı var.
 
 ## Veritabanı şeması (taslak)
 
