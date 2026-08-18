@@ -1,4 +1,4 @@
-# Nomi — Backend Dokümanı
+# Fluu — Backend Dokümanı
 
 ## Stack
 
@@ -22,11 +22,19 @@ vs Socket.io handler'ları).
 
 ```
 users
-  id, email, password_hash, created_at, status (active/frozen/deleted)
+  id, email, password_hash, created_at, status (active/frozen/deleted),
+  is_email_verified (bool)
+  # status=deleted ANLAMI: hard delete değil, anonymize. E-posta/şifre/profil alanları
+  # temizlenir ama satır silinmez — çünkü mesajlar sender_id'ye referans veriyor, satırı
+  # gerçekten silmek karşı taraftaki sohbet geçmişini de kırar. Detay: "Hesap silme" bölümü.
 
 profiles
-  user_id, display_name, bio, avatar_url, age, gender, country, city,
-  interests[], is_verified
+  user_id, username (unique, indexed), display_name, bio, avatar_url, age, gender, country,
+  city, interests[], is_verified
+  # username: kayıt sırasında girilir, benzersiz (unique constraint + case-insensitive index).
+  # Keşfet'te hikaye kartlarında gösterilmez ama hikaye görüntüleyicide ve profilde görünür,
+  # tıklanınca o kullanıcının profiline gider. display_name'den farklı — display_name
+  # tekrar edebilir/değiştirilebilir, username kimlik/URL amaçlı benzersiz kalır.
 
 stories
   id, user_id, media_url, media_type, created_at, expires_at (created_at + 24h),
@@ -41,16 +49,25 @@ follows
   follower_id, following_id, created_at
 
 chats
-  id, created_at
+  id, created_at, last_message_preview, last_message_at
+  # last_message_preview/last_message_at denormalize edilmiş — sohbet listesini her açtığında
+  # messages tablosuna JOIN/subquery atmamak için. Her yeni mesajda güncellenir.
 
 chat_participants
-  chat_id, user_id, pinned (bool), muted (bool), pinned_at, anon_handle (ör. "anonim123")
+  chat_id, user_id, pinned (bool), muted (bool), pinned_at, anon_handle (ör. "anonim123"),
+  unread_count (int, default 0)
   # anon_handle karşı tarafa gösterilen isim — gerçek profile_id ile ayrı tutulur.
   # Engelleme/şikayet her zaman user_id'ye uygulanır, anon_handle sadece görünüm katmanı.
+  # unread_count: yeni mesajda karşı tarafın satırında +1, kullanıcı sohbeti açıp room'a
+  # join olunca (bkz. Presence bölümü) 0'a resetlenir.
 
 messages
   id, chat_id, sender_id, type (text/image/video/audio), content, media_url,
-  created_at, seen_at (nullable)
+  created_at, seen_at (nullable), deleted_for_everyone (bool, default false),
+  hidden_from (user_id[], default [])
+  # "Benden sil": hidden_from'a kendi user_id'n eklenir, sadece senin görünümünden kalkar.
+  # "Herkesten sil": deleted_for_everyone=true, içerik "Bu mesaj silindi" olarak gösterilir,
+  # media_url siliniyorsa R2'den de kaldırılır.
 
 blocks
   blocker_id, blocked_id, created_at
@@ -60,7 +77,7 @@ reports
   created_at
 
 subscriptions
-  user_id, plan (nomi_plus), status (active/canceled/expired/grace_period),
+  user_id, plan (fluu_plus), status (active/canceled/expired/grace_period),
   provider (app_store/play_store), provider_transaction_id, current_period_end,
   created_at, updated_at
 ```
@@ -72,14 +89,30 @@ DB constraint yerine API katmanında iş kuralı olarak.
 
 **REST**
 - `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`
-- `GET/PATCH /users/me`, `DELETE /users/me` (dondurma/silme)
+- `POST /auth/send-verification-otp`, `POST /auth/verify-email` — kayıt sonrası e-posta
+  doğrulanmadan ana uygulamaya erişim yok, her istekte `is_email_verified` kontrolü yapılır
+- `GET/PATCH /users/me`
+- `DELETE /users/me` — **hard delete değil, anonymize** (bkz. "Hesap silme" notu aşağıda)
+- `GET /users/check-username?u=xxx` — anlık benzersizlik kontrolü, onboarding'de yazarken
+  çağrılır (debounce'lu)
+- `GET /users/:username` — herkese açık profil görüntüleme (hikaye görüntüleyiciden tıklanınca
+  buraya gidilir)
 - `GET /discover` — query: country, gender, ageMin, ageMax, sort=newest
 - `POST /stories`, `GET /stories/:id`, `GET /stories/:id/view-count` (sadece sayı döner,
   izleyici listesi hiçbir endpoint'te yok)
 - `GET /chats`, `POST /chats/:id/pin`, `POST /chats/:id/mute`
-- `POST /blocks`, `POST /reports`
+- `POST /media/upload-url`, `POST /media/confirm` — presigned upload akışı (bkz. Medya pipeline)
+- `POST /blocks`, `DELETE /blocks/:id`, `GET /blocks/:id/status` (karşılıklı engelleme durumu)
+- `POST /reports`
 - `POST /subscriptions/verify` (App Store/Play Store receipt doğrulama), webhook endpoint'leri
   (renewal/cancel/expire bildirimleri için — bkz. Abonelik bölümü)
+
+**Hesap silme:** satır silinmez, çünkü `messages.sender_id` başka kullanıcıların sohbet
+geçmişine referans veriyor — gerçekten silmek karşı tarafın da o konuşmayı kaybetmesine yol
+açar. Bunun yerine: email/password/profil alanları temizlenir, `status=deleted` set edilir,
+kullanıcı artık giriş yapamaz ama var olan mesajları "silinmiş kullanıcı" olarak sohbet
+geçmişinde kalmaya devam eder. "Dondurma" (`status=frozen`) bu temizliği yapmaz, sadece girişi
+geçici kapatır — geri dönülebilir.
 
 **WebSocket (Socket.io)**
 - `message:send` / `message:receive`
@@ -89,6 +122,30 @@ DB constraint yerine API katmanında iş kuralı olarak.
 Her istekte iki ayrı kontrol katmanı çalışır: kimlik doğrulama (bu kullanıcı giriş yapmış mı) ve
 yetkilendirme (bu kaynak gerçekten onun mu / karşı taraf engellenmiş mi). İkincisi hem REST hem
 WebSocket katmanında ayrı ayrı uygulanır.
+
+## Presence & realtime detayları
+
+- **Çoklu cihaz/sekme takibi:** Kullanıcı başına açık socket'ler Redis'te tutulur
+  (`user_sockets:{userId}` — socket id seti). Kullanıcı sadece **son** socket'i de kapanınca
+  offline sayılır — iki cihazdan bağlıysa biri kapanınca online kalmaya devam eder. (Bunu
+  Node process'i içinde bir in-memory Map ile tutmak yatay ölçeklenince kırılır — Redis'te
+  tutmak zorunlu, çünkü aynı kullanıcının iki socket'i iki farklı sunucu instance'ına
+  düşebilir.)
+- **Stale-online temizliği:** sunucu çökme gibi durumlarda `disconnect` event'i hiç
+  tetiklenmeyebilir. Saatlik bir BullMQ job, socket seti boş olduğu halde hâlâ "online"
+  görünen kullanıcıları offline'a çeker.
+- **Socket auth:** her bağlantı handshake'te JWT sunar, middleware doğrular ve `socket.userId`
+  olarak bağlar — hiçbir handler client'ın gönderdiği user id'ye güvenmez, hep doğrulanmış
+  `socket.userId` kullanılır.
+- **Engelleme — socket seviyesinde:** `message:send` işlenmeden önce blocker/blocked kontrolü
+  yapılır; engellenmişse mesaj kaydedilmez, gönderene `message:blocked` event'i döner (sessizce
+  yutulmaz, kullanıcıya "bu mesaj gönderilemedi" gösterilebilir — ama karşı tarafa engellendiği
+  bilgisi asla sızmaz).
+- **Engellenince profil sansürü:** taraflardan biri diğerini engellediğinde, engellenen kişi
+  karşı tarafın profilinde/sohbetinde sadece jenerik bilgi görür (anon_handle, offline durumu)
+  — gerçek profil verisi (foto, bio, online durumu) engellenen tarafa hiç sızmaz.
+- **Bildirim gürültüsü:** yeni mesaj bildirimi (`push:new-message`) sadece alıcı o sohbeti o an
+  açık tutmuyorsa gönderilir — zaten baktığı sohbet için bildirim basmak gereksiz.
 
 ## Medya pipeline
 
@@ -100,6 +157,15 @@ WebSocket katmanında ayrı ayrı uygulanır.
 | Video | Hikaye | 15sn, 720p, H.264 ~2.5Mbps | ~4–5MB | 15MB |
 | Video | Sohbet | 60sn, 720p, H.264 ~2Mbps | ~10–15MB | 20MB |
 | Ses | Sohbet | 2dk, Opus/AAC | ~500KB–1MB | 3MB |
+
+### Yükleme yolu — presigned URL
+
+Dosya bytes'ları **backend'den geçmez**. Akış: client `POST /media/upload-url` ile API'den
+kısa ömürlü bir presigned PUT URL ister — client dosyayı doğrudan R2'ye bu URL ile yükler —
+upload bitince client `POST /media/confirm` ile API'ye "yüklendi" der, API o zaman `ffprobe`/
+`sharp` ile gerçek boyut/süre kontrolünü yapar (limit aşımında obje R2'den silinir, mesaj
+reddedilir). Bu sayede kendi sunucumuz dosya trafiğini taşımıyor — hem bant genişliği hem CPU
+tasarrufu, hem de yükleme sırasında API sürecini bloklamıyor.
 
 ### Enforcement — iki katmanlı
 
@@ -129,7 +195,7 @@ etkilemeden arka planda çalışır.
 Foto resize (`sharp`) ve video thumbnail (`ffmpeg`) CPU işi — ana API sürecini bloklamaması için
 ayrı bir BullMQ worker kuyruğunda çalıştırılır.
 
-## Abonelik (Nomi Plus — aylık)
+## Abonelik (Fluu Plus — aylık)
 
 Tek seferlik satın almadan farklı olarak abonelik, sürekli durum takibi gerektirir:
 
@@ -170,17 +236,23 @@ Tek seferlik satın almadan farklı olarak abonelik, sürekli durum takibi gerek
 - PostgreSQL'e her zaman parametreli sorgu (ORM üzerinden)
 - Dosya yükleme: MIME + magic byte kontrolü, boyut limiti, dosya adı sanitize, çalıştırılabilir
   dizine asla yazma
+- Username benzersizliği DB seviyesinde `UNIQUE` constraint ile garanti edilir — `/check-username`
+  sadece UX için anlık geri bildirim verir, gerçek kayıt anında yine de race condition'a karşı
+  DB constraint'e güvenilir (iki kişi aynı anda aynı username'i alamaz)
 
 ### Yetkilendirme
 - Her istekte ayrı bir katmanda "bu kullanıcı bu kaynağa erişebilir mi" kontrolü
 - Engelleme hem REST hem WebSocket katmanında zorunlu — engellenen biri mesaj/hikaye
-  gönderemez
+  gönderemez. Socket seviyesindeki tam davranış (event, profil sansürü) için "Presence &
+  realtime detayları" bölümüne bakın.
 
 ### Altyapı
 - Her yerde HTTPS/WSS zorunlu, HSTS header
 - Secret'lar asla repoya girmez, env değişkeni/secret manager üzerinden
 - CORS whitelist — sadece kendi app domain/scheme'i
 - `npm audit` / Dependabot ile düzenli bağımlılık taraması
+- Docker container'lar root olmayan bir kullanıcıyla çalışır (`USER appuser` — container
+  içinden bir açık bulunsa bile ayrıcalık yükseltmeyi zorlaştırır)
 
 ### İçerik güvenliği
 - Yüklenen görsellerde otomatik NSFW/CSAM taraması (Sightengine, AWS Rekognition, Google

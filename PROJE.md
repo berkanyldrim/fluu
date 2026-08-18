@@ -1,8 +1,8 @@
-# Nomi — Proje Dokümanı
+# Fluu — Proje Dokümanı
 
 ## Nedir
 
-Nomi, anonim sohbet ve hikaye paylaşımı üzerine kurulu bir sosyal platform. connected2.me'nin
+Fluu, anonim sohbet ve hikaye paylaşımı üzerine kurulu bir sosyal platform. connected2.me'nin
 "yabancılarla anonim sohbet" konseptini alıp, güven ve şeffaflık odaklı bir alternatif olarak
 konumlandırıyoruz. Türkiye pazarı için Türkçe-öncelikli geliştiriliyor.
 
@@ -15,6 +15,7 @@ connected2.me kullanıcı yorumlarında öne çıkan iki zayıf nokta üzerinden
 2. **Adil monetization** — aylık abonelik + kozmetik IAP. "Öne çıkmak için öde" (boost/plus
    üyelik) sistemi yok.
 3. **Sade, klişe olmayan tasarım** — gradyan yok, düz/solid renkler, kendine özgü tipografi.
+   (Tek istisna: logonun kendisindeki "w" harfi — bkz. Marka kimliği.)
 
 Sohbet konsepti connected2 gibi genel/açık kalıyor — belirli bir temaya (itiraf, ilgi alanı vb.)
 kilitlenmiyoruz.
@@ -23,41 +24,42 @@ kilitlenmiyoruz.
 
 | Öğe | Değer |
 |---|---|
-| İsim | **Nomi** |
-| UI fontu | JetBrains Mono (variable, 100–800 ağırlık) — başlık, body, buton, form, chat metni |
-| Wordmark fontu | Archivo Black — sadece logo/marka yazısında. JetBrains Mono logotype'ta sıkışık/mekanik durdu, Space Grotesk ise çok ince kaldı; Archivo Black tek ağırlıklı, kalın/dolgun bir headline fontu olduğu için bu belirsizlik ortadan kalkıyor |
-| Logo | Geometrik "N" monogramı — iki dikey kol + çapraz kol, çaprazın orta noktasında (y=12) baklava aksan. Kulis konseptinden taşınan imza şekil. `skewX(-8)` ile hafif dinamik eğim. |
-| Renk mantığı | Düz/solid renkler, **gradyan yok** |
+| İsim | **Fluu** |
+| UI fontu | Nunito (variable, 200–1000 ağırlık) — başlık, body, buton, form, chat metni. Logonun yuvarlak/sıcak karakteriyle uyumlu olduğu için auth ekranlarından tüm uygulamaya taşındı, Türkçe destekli |
+| Logo | Hazır marka varlığı — `fluu-logo-light.png` / `fluu-logo-dark.png`. Özel çizilmiş "flw" bitişik logotype, küçük bir nokta aksanı ile. Artık font/monogram tasarımı yapılmıyor, bu dosyalar nihai. |
+| Renk mantığı | Logodan çıkarılan iki ana renk: lacivert ve mavi. Arayüzün geneli düz/solid renk, **logonun kendisi hariç** — "w" harfinde lacivertten maviye geçen bir gradyan var, bu bilinçli bir marka istisnası, UI'nin geri kalanına yayılmaz. |
 
 ### Renk paleti — Açık tema
 
-| Token | Değer |
-|---|---|
-| `primary` | `#1768E3` |
-| `primary-dark` | `#0E4A9E` |
-| `ink` | `#0E171F` |
-| `muted` | `#616D70` |
-| `background` | `#F6F8F7` |
-| `surface` | `#FFFFFF` |
-| `border` | `#DBE0DE` |
-| `soft-blue` | `#E6F0FB` |
-| `error` | `#BF292E` |
+| Token | Değer | Not |
+|---|---|---|
+| `primary` | `#0297FE` | logodaki mavi, piksel örneklemeyle doğrulandı |
+| `primary-dark` | `#021744` | logodaki lacivert — pressed/hover durumları |
+| `ink` | `#021744` | açık zeminde metin — logoda "f"/"l" harflerinin rengiyle aynı |
+| `muted` | `#5C6B84` | lacivertin açık/desatüre versiyonu |
+| `background` | `#FAFAFA` | logonun açık varyantındaki gerçek zemin rengi |
+| `surface` | `#FFFFFF` | |
+| `border` | `#E3E7ED` | |
+| `soft-blue` | `#E8F4FE` | |
+| `error` | `#BF292E` | marka renginden bağımsız, değişmedi |
 
 ### Renk paleti — Koyu tema (zorunlu, class tabanlı `.dark`)
 
-| Token | Değer |
-|---|---|
-| `background` | `#0E171F` |
-| `surface` | `#142129` |
-| `surface-elevated` | `#192A33` |
-| `primary` | `#1768E3` |
-| `primary-hover` | `#3C87F5` |
-| `text` | `#F4F7F6` |
-| `muted` | `#9AA7A8` |
-| `border` | `#29383E` |
+| Token | Değer | Not |
+|---|---|---|
+| `background` | `#000000` | tamamen siyah — logonun kendi lacivert rozet zemininden bağımsız, bu ekran arka planı |
+| `surface` | `#0D1117` | siyahtan hafif ayrışan kart zemini |
+| `surface-elevated` | `#161B22` | |
+| `primary` | `#0297FE` | |
+| `primary-hover` | `#4FC3FF` | koyu zeminde daha iyi kontrast için |
+| `text` | `#FFFFFF` | |
+| `muted` | `#8CA0C4` | |
+| `border` | `#22272E` | |
 
 Koyu tema renkleri açık temanın basit tersine çevrilmesiyle üretilmez, yukarıdaki kısıtlı token
-seti kullanılır.
+seti kullanılır. `primary` değeri doğrudan `fluu-logo-dark.png`'den piksel örneklemesiyle
+alındı, tahmini değil. `background` ise logonun kendi rozet zemininden (`#021744`, sadece app
+icon içinde geçerli) bilerek ayrıştırıldı — uygulama arayüzünün koyu teması tamamen siyah.
 
 ## Hedef kitle
 
@@ -84,21 +86,26 @@ açılabilecek şekilde kurulur.
 - Takip edilenlerin hikayesi Sohbetlerim'de en üstte çıkar (Instagram mantığı)
 
 ### Sohbetlerim
-- Sohbet geçmişi
+- Sohbet geçmişi, her satırda son mesaj önizlemesi ve okunmamış mesaj rozeti
 - Sohbet sabitleme — **maksimum 5**
 - Sessize alma (mute)
+- Mesaj silme: benden sil / herkesten sil (iki ayrı seçenek)
 - Sohbet silme/arşivleme
 - Karşı taraf varsayılan olarak anonim bir handle ile görünür (örn. "anonim123") — profil bilgisi
   paylaşılmadığı sürece gerçek kullanıcı adı/fotoğrafı gösterilmez
 - Engelleme ve şikayet etme — her sohbette zorunlu, **karşı tarafın profiline gitmeye gerek
   kalmadan doğrudan sohbet ekranından çalışır**. Engelleme her zaman gerçek hesaba (user_id)
-  uygulanır, o an ekranda görünen anonim handle'a değil
+  uygulanır, o an ekranda görünen anonim handle'a değil. Engellenen taraf karşı tarafın gerçek
+  profilini bir daha göremez, sadece jenerik bilgi görür
 - "Yazıyor..." göstergesi
 - "Görüldü" bilgisini açıp kapatabilme (gizlilik kontrolü kullanıcıda)
 - Medya paylaşımı: foto, video, sesli mesaj (bkz. medya limitleri)
 - Yeni sohbet başlatmak için Keşfet ile aynı filtreleme mantığı
 
 ### Profil
+- **Kullanıcı adı** (benzersiz, kayıtta belirlenir) ve **görünen ad** (değiştirilebilir, tekrar
+  edebilir) — ikisi ayrı alanlar. Kullanıcı adı profil bağlantısı/kimlik için, hikaye
+  görüntüleyicide ve profilde görünür ve tıklanabilir
 - Profil fotoğrafı yükleme
 - Biyografi
 - Yaş, cinsiyet, ülke/şehir (Keşfet filtreleri buna bağlı)
@@ -106,7 +113,9 @@ açılabilecek şekilde kurulur.
 - Takipçi/takip sayısı
 - Şifre değiştirme
 - Çıkış yapma
-- Hesap silme / dondurma
+- Hesap silme / dondurma — silme aslında **anonymize**'dır (veriler temizlenir, satır kalır),
+  çünkü mesajların karşı taraftaki sohbet geçmişi buna bağlı; dondurma geri dönülebilir bir
+  askıya alma
 - Engellenen kullanıcılar listesi
 - Bildirim tercihleri
 - Fotoğraf doğrulama rozeti
@@ -116,6 +125,7 @@ açılabilecek şekilde kurulur.
 Detaylı liste `BACKEND.md`'de. Öne çıkan zorunluluklar:
 
 - 18+ yaş onboarding gate
+- E-posta doğrulama zorunlu — OTP ile doğrulanmadan ana uygulamaya erişim yok
 - Görsel/video moderasyonu (otomatik NSFW/CSAM tarama)
 - Her sohbette engelleme + şikayet mekanizması
 - Mesajlarda spam önleme (rate limiting, flood/tekrar tespiti — detay `BACKEND.md`'de)
@@ -150,7 +160,7 @@ Filtreler (ülke/cinsiyet/yaş/tarih), sabitleme, takip sistemi, hikayede takip 
 çıkması
 
 **Faz 3**
-Shuffle/rastgele eşleştirme, reaksiyonlar, Nomi Plus (aylık abonelik), otomatik moderasyon
+Shuffle/rastgele eşleştirme, reaksiyonlar, Fluu Plus (aylık abonelik), otomatik moderasyon
 
 ## İlgili dokümanlar
 

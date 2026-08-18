@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Nomi",
-    "slug": "nomi",
+    "name": "Fluu",
+    "slug": "fluu",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "nomi",
+    "scheme": "fluu",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"

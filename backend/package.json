@@ -1,7 +1,7 @@
 {
-  "name": "nomi-backend",
+  "name": "fluu-backend",
   "version": "1.0.0",
-  "description": "Nomi backend — Fastify REST + Socket.io realtime service",
+  "description": "Fluu backend — Fastify REST + Socket.io realtime service",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {

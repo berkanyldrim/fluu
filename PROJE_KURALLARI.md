@@ -1,10 +1,10 @@
-# Nomi — Proje Kuralları
+# Fluu — Proje Kuralları
 
 ## Dil
 
 - Tüm kod, dosya adları, değişken/fonksiyon isimleri, yorum satırları ve commit mesajları
   **İngilizce**.
-- Marka ismi (**Nomi**) ve kullanıcıya gösterilen UI metinleri Türkçe kalır — bunlar i18n
+- Marka ismi (**Fluu**) ve kullanıcıya gösterilen UI metinleri Türkçe kalır — bunlar i18n
   dosyalarında tutulur, kod içinde hardcode edilmez.
 - Commit mesajları [Conventional Commits](https://www.conventionalcommits.org/) formatında:
   `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `security:` vb.
@@ -40,9 +40,9 @@ Detaylı güvenlik ve performans gereksinimleri için `BACKEND.md`.
 
 - Frontend ve backend ayrı repo/paket olarak tutulur, ortak tipler (API sözleşmesi) paylaşılan
   bir `types` paketinde tanımlanır.
-- Marka varlıkları (`nomi-mark.svg`, favicon boyut serisi, renk/tipografi tokenleri)
-  `design/` klasöründe tek kaynak olarak tutulur, frontend bu değerleri import eder — renk/font
-  değerleri koda elle kopyalanmaz.
+- Marka varlıkları (`fluu-logo-light.png`, `fluu-logo-dark.png`, favicon boyut serisi,
+  renk/tipografi tokenleri) `design/` klasöründe tek kaynak olarak tutulur, frontend bu
+  değerleri import eder — renk/font değerleri koda elle kopyalanmaz.
 
 ## İlgili dokümanlar
 
