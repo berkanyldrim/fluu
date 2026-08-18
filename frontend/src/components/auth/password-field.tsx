@@ -5,7 +5,11 @@ import { Pressable, TextInputProps } from 'react-native';
 import { TextField } from '@/components/auth/text-field';
 import { useTheme } from '@/hooks/use-theme';
 
-export function PasswordField(props: TextInputProps) {
+type PasswordFieldProps = TextInputProps & {
+  invalid?: boolean;
+};
+
+export function PasswordField(props: PasswordFieldProps) {
   const [visible, setVisible] = useState(false);
   const theme = useTheme();
 

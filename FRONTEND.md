@@ -5,6 +5,7 @@
 - React Native + Expo + TypeScript
 - Expo Router (dosya tabanlı navigasyon)
 - Zustand (state yönetimi — hafif, Redux'a göre boilerplate'i az)
+- zod (form doğrulama — `frontend/src/schemas/`)
 - Socket.io-client (realtime sohbet)
 - expo-image-manipulator (foto sıkıştırma/resize)
 - expo-av (ses/video kayıt ve sıkıştırma)
@@ -113,6 +114,12 @@ param'ıyla) → `reset-password` (yeni şifre + tekrar, başarı sonrası `logi
 `reset-password.tsx` concept dosyasında yoktu, akışı tamamlamak için eklendi — diğer auth
 ekranlarıyla aynı bileşenleri (`PasswordField`, `PrimaryButton`, `GhostButton`) kullanır.
 
+**Form doğrulama:** `register` ekranında zod ile doğrulanır — e-posta formatı, şifre en az 8
+karakter + en az bir büyük harf + bir küçük harf + bir rakam, iki şifre alanının eşleşmesi,
+Kullanım Koşulları onayının işaretli olması. `login` ekranında ayrıca bir doğrulama şeması yok
+(sadece alanların boş olmaması yeterli) — asıl doğrulama zaten backend'de yapılacak. Şemalar
+`frontend/src/schemas/auth.ts`'te.
+
 ## Bileşen gereksinimleri
 
 ### Onboarding (kayıt sonrası)
@@ -121,14 +128,19 @@ ekranlarıyla aynı bileşenleri (`PasswordField`, `PrimaryButton`, `GhostButton
 - **Profil fotoğrafı:** dairesel yükleme alanı + kamera rozeti, `expo-image-picker` ile
   galeriden seçim, aynı sıkıştırma kuralları (`FRONTEND.md` medya bölümü) geçerli. **Atlanabilir**
   — anonimlik odaklı bir uygulamada fotoğrafı zorunlu tutmak pozisyonlamamızla çelişir
-- **Kişisel bilgiler:** görünen ad, **kullanıcı adı** (benzersiz — yazarken `/users/check-username`
-  ile anlık kontrol, uygunsa yeşil tik gösterilir, alınmışsa kayıt tamamlanamaz), doğum tarihi,
-  cinsiyet (chip/segmented seçim — dropdown değil, tek dokunuşla seçilebilir), ülke/şehir. Yaş/
-  cinsiyet/ülke zorunlu çünkü Keşfet filtreleri doğrudan buna bağlı. Doğum tarihinden hesaplanan
-  yaş 18'in altındaysa kayıt tamamlanamaz (18+ gate burada uygulanır, backend'de de ayrıca
-  doğrulanır). **Görünen ad ile kullanıcı adı farklı şeyler** — görünen ad tekrar edebilir ve
-  istenildiği zaman değiştirilebilir, kullanıcı adı benzersiz kalır ve profil bağlantısı/kimlik
-  amaçlı kullanılır
+- **Kişisel bilgiler:** isim, soyisim, **kullanıcı adı** (benzersiz — yazarken
+  `/users/check-username` ile anlık kontrol, uygunsa yeşil tik gösterilir, alınmışsa kayıt
+  tamamlanamaz), doğum tarihi (kütüphanesiz, üç sütunlu — gün/ay/yıl — özel tarih seçici,
+  `BirthDatePicker`), cinsiyet (chip/segmented seçim — dropdown değil, tek dokunuşla seçilebilir),
+  ülke (aranabilir liste, `SelectField`) ve — yalnızca ülke Türkiye seçiliyse — şehir (81 il,
+  aynı `SelectField` bileşeni); Türkiye dışı bir ülke seçilince şehir alanı gizlenir ve
+  backend'e `null` gönderilir. Yaş/cinsiyet/ülke zorunlu çünkü Keşfet filtreleri doğrudan buna
+  bağlı. Doğum tarihinden hesaplanan yaş 18'in altındaysa kayıt tamamlanamaz (18+ gate burada
+  uygulanır, backend'de de ayrıca doğrulanır). **İsim/soyisim ile kullanıcı adı farklı
+  şeyler** — isim/soyisim değiştirilebilir, kullanıcı adı benzersiz kalır ve profil
+  bağlantısı/kimlik amaçlı kullanılır. Tüm alanlar `schemas/auth.ts`'teki zod şemasıyla
+  doğrulanır (frontend'de zod kullanımı bu ekrandan başladı, register ekranında da e-posta/şifre
+  doğrulaması için kullanılıyor — bkz. aşağıdaki "Form doğrulama" notu)
 
 ### Filtre paneli (Keşfet + yeni sohbet başlatma akışı)
 
