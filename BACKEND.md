@@ -14,7 +14,7 @@
 Supabase/Firebase **kullanılmıyor** — tam kontrol, vendor lock-in olmaması ve KVKK açısından
 "veri Türkiye/AB'de kalıyor" pozisyonunu savunabilmek için kendi backend'imizi yazıyoruz.
 
-Tek servis hem REST (sosyal özellikler: profil, hikaye, keşfet, engelleme) hem WebSocket
+Tek servis hem REST (sosyal özellikler: profil, hikaye, shuffle, sohbet bul, engelleme) hem WebSocket
 (realtime mesajlaşma) trafiğini karşılar. Aynı Node.js süreci, aynı PostgreSQL, aynı Redis,
 aynı R2 bucket — ayrı bir sistem kurmuyoruz, sadece kod içinde katman ayrımı (REST route'ları
 vs Socket.io handler'ları).
@@ -48,7 +48,7 @@ profiles
   user_id, username (unique, indexed), first_name, last_name, bio, avatar_url, birth_date,
   gender, country, city (nullable), interests[], is_verified
   # username: kayıt sırasında girilir, benzersiz (unique constraint + case-insensitive index).
-  # Keşfet'te hikaye kartlarında gösterilmez ama hikaye görüntüleyicide ve profilde görünür,
+  # Hikayeler'de hikaye kartlarında gösterilmez ama hikaye görüntüleyicide ve profilde görünür,
   # tıklanınca o kullanıcının profiline gider. first_name/last_name'den farklı — bunlar
   # değiştirilebilir, username kimlik/URL amaçlı benzersiz kalır.
   # birth_date: statik bir "age" alanı değil — yaş her okumada birth_date'ten hesaplanır, aksi
@@ -81,6 +81,23 @@ story_views
 
 follows
   follower_id, following_id, created_at
+  # Tek taraflı, onay gerekmez (Instagram mantığı). Tek işlevi: Ana Sayfa'daki hikaye şeridinde
+  # kimin hikayesinin gösterileceğini belirlemek — başka bir yerde (Shuffle sıralaması, Sohbet
+  # Bul eşleştirmesi vb.) kullanılmaz.
+
+match_requests
+  id, user_id, matched_user_id, chat_id, created_at
+  # Sohbet Bul'dan gelen her eşleştirme burada loglanır. Haftalık free limit
+  # (`SELECT count(*) WHERE user_id=X AND created_at > now() - interval '7 days'`) buradan
+  # hesaplanır — ayrı bir sayaç/quota tablosu tutulmaz, kaynak veri burası.
+
+boosts
+  id, user_id, source (subscription/purchase), started_at, expires_at,
+  provider_transaction_id (nullable)
+  # source=subscription: Premium'un dahil ettiği sürekli öncelik (aktif olduğu sürece her
+  # zaman `expires_at` yenilenir). source=purchase: tek seferlik mikro ödemeyle alınan süreli
+  # boost (ör. 1 saat). Shuffle sorgusu `WHERE expires_at > now()` olan kullanıcıları öncelikli
+  # sıraya koyar.
 
 chats
   id, created_at, last_message_preview, last_message_at
@@ -96,12 +113,21 @@ chat_participants
   # join olunca (bkz. Presence bölümü) 0'a resetlenir.
 
 messages
-  id, chat_id, sender_id, type (text/image/video/audio), content, media_url,
+  id, chat_id, sender_id, type (text/image/video/audio/profile_link), content, media_url,
+  media_source (camera/gallery, nullable — sadece image/video), view_once (bool, default false),
+  viewed_at (nullable), link_verified (bool, nullable — sadece type=profile_link),
   created_at, seen_at (nullable), deleted_for_everyone (bool, default false),
   hidden_from (user_id[], default [])
   # "Benden sil": hidden_from'a kendi user_id'n eklenir, sadece senin görünümünden kalkar.
   # "Herkesten sil": deleted_for_everyone=true, içerik "Bu mesaj silindi" olarak gösterilir,
   # media_url siliniyorsa R2'den de kaldırılır.
+  # view_once=true olan image/video: alıcı POST /messages/:id/view çağırınca viewed_at set
+  # edilir VE media_url'deki obje R2'den hemen silinir — ikinci kez GET edilemez, presigned
+  # URL üretilmez. Ses mesajında view_once hiç kullanılmaz (her zaman false).
+  # type=profile_link: content, paylaşılan Fluu profil URL'i. link_verified, gönderim anında
+  # backend'de hesaplanır (linkteki username == sender'ın kendi username'i mi) ve mesajla
+  # birlikte kalıcı olarak saklanır — sonradan biri username değiştirirse geçmiş mesajların
+  # rozeti gösterdiği anki doğrulama durumunu korur, yeniden hesaplanmaz.
 
 blocks
   blocker_id, blocked_id, created_at
@@ -111,9 +137,9 @@ reports
   created_at
 
 subscriptions
-  user_id, plan (fluu_plus), status (active/canceled/expired/grace_period),
-  provider (app_store/play_store), provider_transaction_id, current_period_end,
-  created_at, updated_at
+  user_id, plan (fluu_plus_weekly/fluu_plus_monthly), status (active/canceled/expired/
+  grace_period), provider (app_store/play_store), provider_transaction_id,
+  current_period_end, created_at, updated_at
 ```
 
 `pinned` alanına uygulama katmanında (Faz 2'de) kullanıcı başına max 5 kontrolü eklenir —
@@ -137,10 +163,30 @@ DB constraint yerine API katmanında iş kuralı olarak.
   çağrılır (debounce'lu)
 - `GET /users/:username` — herkese açık profil görüntüleme (hikaye görüntüleyiciden tıklanınca
   buraya gidilir)
-- `GET /discover` — query: country, gender, ageMin, ageMax, sort=newest
+- `GET /stories/feed` — Hikayeler akışı, query: country, gender, ageMin, ageMax (hepsi premium
+  gerektirir). **Sıralama parametresi yok** — sonuç her zaman rastgele sırada döner
+  (`ORDER BY random()` yerine, ölçeklenince pahalılaşacağı için pratikte önceden karıştırılmış
+  bir sayfa cache'i / uygulama katmanında shuffle, bkz. "Performans")
 - `POST /stories`, `GET /stories/:id`, `GET /stories/:id/view-count` (sadece sayı döner,
   izleyici listesi hiçbir endpoint'te yok)
+- `GET /shuffle` — query: country, gender, ageMin, ageMax (premium). 30 kişilik havuz döner,
+  sıralama sunucuda uygulanır: önce `boosts.expires_at > now()` olanlar, sonra çevrimiçi
+  olanlar, sonra `last_seen_at DESC`
+- `POST /match/request` — Sohbet Bul. Sunucu: (1) `match_requests`'ten son 7 günkü kaydı
+  sayar, free + limit doluysa `429` + `{ reason: "weekly_limit" }` döner; (2) kullanıcının
+  cinsiyetine göre karşı cinsiyetten (kullanıcı "diğer" ise karışık) uygun birini bulur — aktif
+  algoritma basit bir uygunluk sorgusu (son eşleşenler hariç, temel filtre); (3) `chats` +
+  `chat_participants` satırlarını oluşturur, `match_requests`'e log yazar, `chatId` döner
+- `GET /match/status` — free kullanıcı için kalan haftalık hak sayısı
+- `POST /boosts` — App Store/Play Store tek seferlik ürün satın alma doğrulaması + `boosts`
+  satırı oluşturma (premium abonelikten bağımsız akış)
+- `POST /users/:username/follow`, `DELETE /users/:username/follow`
 - `GET /chats`, `POST /chats/:id/pin`, `POST /chats/:id/mute`
+- `POST /chats/:id/screenshot` — ekran görüntüsü alındığını bildirir, backend karşı tarafa
+  `push:screenshot-taken` gönderir (bkz. Presence & realtime detayları)
+- `POST /messages/:id/view` — `view_once=true` olan bir mesaj ilk kez açıldığında çağrılır;
+  `viewed_at` set edilir ve `media_url` R2'den hemen silinir, sonraki `GET` denemeleri `410`
+  döner
 - `POST /media/upload-url`, `POST /media/confirm` — presigned upload akışı (bkz. Medya pipeline)
 - `POST /blocks`, `DELETE /blocks/:id`, `GET /blocks/:id/status` (karşılıklı engelleme durumu)
 - `POST /reports`
@@ -158,10 +204,27 @@ geçici kapatır — geri dönülebilir.
 - `message:send` / `message:receive`
 - `typing:start` / `typing:stop`
 - `presence:online` / `presence:offline`
+- `message:viewed` — `view_once` mesaj açıldığında gönderene bildirilir (mesajın artık
+  görüntülenemez olduğunu client'ta yansıtmak için)
+- `screenshot:taken` — `POST /chats/:id/screenshot` çağrıldığında backend bunu karşı tarafın
+  socket'ine iletir, client `push:screenshot-taken` bildirimini/in-chat uyarısını gösterir
 
 Her istekte iki ayrı kontrol katmanı çalışır: kimlik doğrulama (bu kullanıcı giriş yapmış mı) ve
 yetkilendirme (bu kaynak gerçekten onun mu / karşı taraf engellenmiş mi). İkincisi hem REST hem
 WebSocket katmanında ayrı ayrı uygulanır.
+
+**Profil linki doğrulama:** `POST /messages` içinde `type=profile_link` gönderildiğinde backend
+content'teki URL'i parse eder, path'teki username'i mesajı gönderenin (`sender_id` →
+`profiles.username`) kendi kullanıcı adıyla karşılaştırır. Eşleşiyorsa `link_verified=true`,
+eşleşmiyorsa `false` kaydedilir — bu alan **client tarafından asla set edilmez**, tamamen
+sunucu hesaplar (client'tan gelen `link_verified` alanı varsa yok sayılır). Fluu domain'i
+dışındaki bir URL algılanırsa mesaj `422` ile reddedilir.
+
+**Sohbet Bul eşleştirme mantığı:** `POST /match/request` çağrısında sunucu önce haftalık kotayı
+kontrol eder (bkz. API uç noktaları), ardından `profiles` üzerinde `gender` filtresiyle uygun
+bir aday çeker — kullanıcının `gender`'ı erkek/kadınsa karşı cinsiyetten, "diğer" ise filtresiz
+(karışık) sorgu çalışır. Son eşleşilen kullanıcılar kısa bir süre (ör. 24 saat) tekrar
+önerilmez, aynı kişiyle art arda eşleşme olasılığını azaltır.
 
 ## Presence & realtime detayları
 
@@ -235,18 +298,29 @@ etkilemeden arka planda çalışır.
 Foto resize (`sharp`) ve video thumbnail (`ffmpeg`) CPU işi — ana API sürecini bloklamaması için
 ayrı bir BullMQ worker kuyruğunda çalıştırılır.
 
-## Abonelik (Fluu Plus — aylık)
+## Abonelik (Fluu Plus — haftalık + aylık) ve Boost
 
-Tek seferlik satın almadan farklı olarak abonelik, sürekli durum takibi gerektirir:
+İki farklı ödeme akışı var, karıştırılmamalı:
 
-- `subscriptions` tablosunda kullanıcı başına aktif durum (`status`) ve dönem sonu
-  (`current_period_end`) tutulur
+**Fluu Plus (abonelik, sürekli durum takibi gerektirir)**
+- `subscriptions` tablosunda kullanıcı başına aktif durum (`status`), plan (`fluu_plus_weekly`
+  / `fluu_plus_monthly`) ve dönem sonu (`current_period_end`) tutulur
 - App Store/Play Store'dan gelen **server-to-server webhook**'lar dinlenir (yenileme, iptal,
   ödeme hatası, grace period) — sadece client'ın "satın aldım" demesine güvenilmez, sunucu
   taraflı doğrulama zorunlu
 - Grace period (ödeme başarısız olduğunda kısa bir süre erişimin kesilmemesi) desteklenir,
   kullanıcı deneyimini korur
 - Erişim kontrolü her istekte `subscriptions.status = active` kontrolüyle yapılır, cache'lenir
+- Premium olmak otomatik olarak sürekli bir `boosts` satırı anlamına gelmez — Shuffle'daki
+  öncelik kontrolü ayrıca `boosts` tablosuna bakar; aboneliğin `active` olduğu süre boyunca bu
+  satır arka planda (abonelik yenilendikçe) güncel tutulur
+
+**Boost (tek seferlik satın alma, durum takibi gerektirmez)**
+- `POST /boosts` — App Store/Play Store'un tek seferlik ürün (non-consumable/consumable IAP)
+  receipt doğrulaması yapılır, başarılıysa `boosts` satırı `source=purchase` ve süresi (ör.
+  başlangıçtan +1 saat) ile oluşturulur
+- Webhook takibi gerekmez, receipt doğrulaması tek seferlik yeterli — abonelikten farklı olarak
+  yenileme/iptal durumu yok
   (her istekte App Store'a sormaya gerek yok)
 
 ## Spam önleme
@@ -306,7 +380,7 @@ Tek seferlik satın almadan farklı olarak abonelik, sürekli durum takibi gerek
 - **Realtime:** Socket.io tek sunucuda sorun değil, yatay ölçeklenince (birden fazla sunucu)
   **Redis adapter zorunlu** — yoksa farklı sunuculara bağlanan iki kullanıcı birbirini göremez
 - **DB:** filtrelenen alanlarda (ülke, cinsiyet, yaş, tarih) composite index; okuma ağırlıklı
-  yerler (Keşfet, hikaye akışı) için Redis cache katmanı
+  yerler (Hikayeler, Shuffle) için Redis cache katmanı
 - **Hikaye temizliği:** 24 saatlik TTL BullMQ/cron ile arka planda çalışır, tablo şişmez
 - **Medya:** R2 + CDN üzerinden servis edilir, sunucudan direkt stream edilmez
 - **Genel:** rate limiting hem güvenlik hem performans için; Docker + yatay ölçekleme; MVP
