@@ -26,7 +26,7 @@ kendisi (bkz. "Logo & marka varlıkları"), o zaten sabit bir görsel dosya, kod
 
 Tek font, tüm uygulamada: **Nunito** (variable, 200–1000 ağırlık). Auth ekranlarında
 denendikten sonra (JetBrains Mono logonun yuvarlak/sıcak karakteriyle uyuşmuyordu) karar
-verildi: **tüm uygulama Nunito'ya taşındı** — chat, Keşfet, Sohbetlerim, Profil dahil, artık
+verildi: **tüm uygulama Nunito'ya taşındı** — chat, Hikayeler, Shuffle, Sohbetlerim, Profil dahil, artık
 iki fontlu bir sistem yok. Logo hazır bir görsel dosya olduğu için ayrı bir "wordmark fontu"
 da yok — marka yazısı hiçbir yerde canlı metin olarak set edilmiyor, her zaman
 `fluu-logo-*.png` kullanılıyor.
@@ -87,25 +87,38 @@ app/
       photo.tsx              # profil fotoğrafı, atlanabilir
       personal-info.tsx      # görünen ad, doğum tarihi, cinsiyet, ülke/şehir — 18+ gate burada
   (tabs)/
-    discover/              # Keşfet
+    stories/                # Hikayeler
       index.tsx
       filters.tsx
-    chats/                 # Sohbetlerim
+    shuffle/                # Shuffle
+      index.tsx
+      filters.tsx
+      [username].tsx          # profil detay — Takip Et + Sohbet Başlat
+    match/                   # Sohbet Bul — alt nav'ın ortasındaki öne çıkan buton buraya yönlenir
+      index.tsx                # eşleştirme yükleniyor ekranı, bulununca chats/[chatId]'e redirect
+      limit-reached.tsx        # free kullanıcı haftalık 5 hakkını doldurunca (premium teklifi)
+    chats/                   # Ana Sayfa (Sohbetlerim)
       index.tsx
       [chatId].tsx
-    profile/                # Profil
+    profile/                 # Profil
       index.tsx
       edit.tsx
       settings.tsx
       blocked-users.tsx
   story/
     create.tsx
-    [storyId].tsx           # viewer
+    [storyId].tsx             # viewer
 ```
+
+**Tab bar özel davranışı:** `(tabs)` layout'unda varsayılan Expo Router tab bar yerine özel bir
+`TabBar` bileşeni kullanılır, çünkü `match` sekmesi diğer 4'ünden görsel olarak ayrışıyor —
+ortada, biraz yükseltilmiş, ışıltılı/parlak bir buton (Tinder'daki alev ikonuna benzer bir
+vurgu). Sekme sırası: Hikayeler, Shuffle, **Sohbet Bul** (ortada, öne çıkan), Ana Sayfa
+(chats), Profil.
 
 **Kayıt akışı sırası:** `register` → `verify-otp` (e-posta doğrulama, `BACKEND.md`'deki
 "e-posta doğrulanmadan ana uygulamaya erişim yok" kuralı burada uygulanır) → `onboarding/photo`
-(atlanabilir) → `onboarding/personal-info` (zorunlu, 18+ gate + Keşfet filtrelerinin dayandığı
+(atlanabilir) → `onboarding/personal-info` (zorunlu, 18+ gate + Hikayeler/Shuffle filtrelerinin dayandığı
 alanlar burada toplanır) → `(tabs)`. Adım göstergesi (üstte 3 nokta) her ekranda ilerlemeyi
 gösterir. Görsel referans: `fluu-auth-concept.html`.
 
@@ -134,7 +147,7 @@ Kullanım Koşulları onayının işaretli olması. `login` ekranında ayrıca b
   `BirthDatePicker`), cinsiyet (chip/segmented seçim — dropdown değil, tek dokunuşla seçilebilir),
   ülke (aranabilir liste, `SelectField`) ve — yalnızca ülke Türkiye seçiliyse — şehir (81 il,
   aynı `SelectField` bileşeni); Türkiye dışı bir ülke seçilince şehir alanı gizlenir ve
-  backend'e `null` gönderilir. Yaş/cinsiyet/ülke zorunlu çünkü Keşfet filtreleri doğrudan buna
+  backend'e `null` gönderilir. Yaş/cinsiyet/ülke zorunlu çünkü Hikayeler/Shuffle filtreleri ve Sohbet Bul eşleştirmesi doğrudan buna
   bağlı. Doğum tarihinden hesaplanan yaş 18'in altındaysa kayıt tamamlanamaz (18+ gate burada
   uygulanır, backend'de de ayrıca doğrulanır). **İsim/soyisim ile kullanıcı adı farklı
   şeyler** — isim/soyisim değiştirilebilir, kullanıcı adı benzersiz kalır ve profil
@@ -142,17 +155,39 @@ Kullanım Koşulları onayının işaretli olması. `login` ekranında ayrıca b
   doğrulanır (frontend'de zod kullanımı bu ekrandan başladı, register ekranında da e-posta/şifre
   doğrulaması için kullanılıyor — bkz. aşağıdaki "Form doğrulama" notu)
 
-### Filtre paneli (Keşfet + yeni sohbet başlatma akışı)
+### Filtre paneli (Hikayeler + Shuffle ortak bileşen)
 
-Aynı bileşen iki yerde kullanılır: ülke, cinsiyet, yaş aralığı (slider), sıralama (en yeni/en
-eski). Sıralama artık ayrı bir üst bar değil, filtre panelinin içinde.
+Aynı bileşen iki yerde kullanılır: ülke, cinsiyet, yaş aralığı (slider). **Sıralama seçeneği
+yok** — Hikayeler her zaman karışık, Shuffle her zaman çevrimiçi-önce/son-görülme mantığıyla
+sıralanır, kullanıcı bunu değiştiremez. Free kullanıcı filtre ikonuna dokununca panel yerine
+premium teklif ekranı (`PaywallSheet`) açılır — panel içeriği hiç render edilmez.
 
-### Hikaye kartı (Keşfet grid)
+### Hikaye kartı (Hikayeler grid)
 
 - Kart tamamen görsel — **hiç metin yok**, ne isim ne yaş/şehir ne görüntülenme sayısı kartın
   üzerinde gösterilmez
 - Sol üstte paylaşan kişinin profil fotoğrafı (küçük halka), sağ üstte 3 nokta menüsü
   (şikayet paneli — bkz. "Şikayet" bileşeni)
+
+### Shuffle kartı
+
+- Hikaye kartının aksine burada metin var: profil fotoğrafı, isim + yaş, 2-3 etiket chip, kısa
+  bio (1 satır, tam bio profil detayında)
+- Hikayesi varsa fotoğraf çerçevesinde story ring (`StoryRing` bileşeni, Hikayeler'deki ring
+  ile aynı, tıklanınca tam ekran hikaye açılır — Shuffle listesinden çıkılmaz, hikaye kapanınca
+  aynı yere döner)
+- Boost'lu profillerde kartın kenarında ince, düşük yoğunlukta ışıltılı bir çerçeve
+  (`BoostedBadge`) — aşırı göze batmayacak şekilde, reklam gibi durmamalı
+- Karta tıklama → `shuffle/[username].tsx` profil detay sayfası, orada `Takip Et` ve
+  `Sohbet Başlat` butonları
+
+### Sohbet Bul akışı
+
+- Alt nav'daki ortadaki buton `match/index.tsx`'e yönlenir
+- Yükleniyor ekranı: kısa bir animasyon ("Eşleşme aranıyor...") + iptal butonu
+- Eşleşme bulununca otomatik `chats/[chatId]`'e yönlenir
+- Free kullanıcı haftalık limitini doldurduysa buton tıklanınca direkt `match/limit-reached.tsx`
+  (premium teklif ekranı) açılır, yükleniyor ekranı hiç gösterilmez
 
 ### Hikaye viewer
 
@@ -192,8 +227,24 @@ eski). Sıralama artık ayrı bir üst bar değil, filtre panelinin içinde.
     (`expo-image-manipulator`, max 1920px uzun kenar, JPEG/WebP %75-80)
   - Video: max 60sn, 720p — kayıt sırasında `expo-av` ile sınırla, seçim ekranında da uyar
   - Ses mesajı: max 2dk, AAC/Opus formatında kaydet (WAV asla)
+  - Foto/video seçim ekranında **kaynak seçimi zorunlu adım**: Kamera ya da Galeri — hangisi
+    seçilirse mesaj balonunda küçük bir ikonla (📷/🖼️) işaretlenir, sadece bilgi amaçlı
+  - Foto/video gönderirken **Normal / Tek Gösterimlik** seçici (`ViewOnceToggle`) — tek
+    gösterimlik seçilirse mesaj `view_once=true` ile gönderilir, alıcı `MediaViewer`'da bir kez
+    açtıktan sonra içerik client'ta ve backend'de erişilemez hale gelir (bkz. `BACKEND.md`).
+    Sesli mesajda bu seçici gösterilmez
   - Sunucu tarafı hard-cap'ler her durumda ayrıca kontrol edilir (bkz. `BACKEND.md`) — client
     limiti sadece UX, güvenlik sınırı değil
+- **Profil linki paylaşımı:** metin input'una kullanıcı kendi profil linkini yapıştırırsa,
+  gönderilmeden önce client basit bir regex ile Fluu domain'ini tanır ve `LinkPreviewCard`
+  olarak render eder (ham URL metni yerine). Doğrulama rozeti (`VerifiedLinkBadge`) backend'in
+  döndürdüğü `link_verified` alanına göre gösterilir, client kendi başına karar vermez. Fluu
+  dışı bir domain algılanırsa gönderim engellenir, kullanıcıya kısa bir uyarı gösterilir
+- **Ekran görüntüsü tespiti:** Android'de `onWindowFocusChanged` + native modül, iOS'ta
+  `UIApplication.userDidTakeScreenshotNotification` dinlenir; tetiklenince
+  `screenshot:taken` socket event'i backend'e, oradan karşı tarafa `push:screenshot-taken`
+  bildirimi olarak gider (bkz. `BACKEND.md`) — client hiçbir şeyi engellemeye çalışmaz, sadece
+  bildirir
 
 ### Profil
 

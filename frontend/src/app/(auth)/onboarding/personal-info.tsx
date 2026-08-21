@@ -148,7 +148,7 @@ export default function OnboardingPersonalInfoScreen() {
   return (
     <AuthScreen
       title="Seni tanıyalım"
-      description="Bu bilgiler Keşfet'te doğru kişilerle eşleşmeni sağlar."
+      description="Bu bilgiler Hikayeler, Shuffle ve Sohbet Bul'da doğru kişilerle eşleşmeni sağlar."
       topSlot={<StepDots total={TOTAL_STEPS} activeCount={3} />}>
       <TextField
         placeholder="İsim"
