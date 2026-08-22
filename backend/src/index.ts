@@ -17,13 +17,19 @@ const app = Fastify({ logger: true });
 // PATCH/DELETE kullanan /users/me gibi route'larda preflight'ı sessizce reddediyordu.
 await app.register(cors, { origin: true, methods: ['GET', 'POST', 'PATCH', 'DELETE'] });
 
+function formatWaitTime(ms: number) {
+  const totalSeconds = Math.ceil(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds} saniye`;
+  return `${Math.ceil(totalSeconds / 60)} dakika`;
+}
+
 await app.register(rateLimit, {
   global: true,
   max: 100,
   timeWindow: "1 minute",
   redis,
   errorResponseBuilder: (_request, context) => ({
-    error: `Çok fazla istek gönderdin, ${context.after} sonra tekrar dene`,
+    error: `Çok fazla istek gönderdin, ${formatWaitTime(context.ttl)} sonra tekrar dene`,
   }),
 });
 
