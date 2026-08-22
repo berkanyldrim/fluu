@@ -93,7 +93,7 @@ export default function VerifyOtpScreen() {
       title="Kodu Doğrula"
       description={`${email ? maskEmail(email) : 'e-posta adresine'} gönderdiğimiz kodu gir.`}>
       <OtpInput value={digits} onChange={setDigits} />
-      <FieldError message={error} />
+      <FieldError message={error} center />
       {secondsLeft > 0 ? (
         <Text style={[styles.timer, { color: theme.muted }]}>
           Kodu tekrar gönder <Text style={styles.timerDisabled}>({minutes}:{seconds})</Text>
