@@ -42,13 +42,15 @@ async function issueTokenPair(userId: string) {
 
 async function issueOtp(userId: string, email: string, purpose: 'register' | 'reset') {
   const code = generateOtpCode();
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS);
   await db.insert(emailOtps).values({
     userId,
     codeHash: hashOpaqueToken(code),
     purpose,
-    expiresAt: new Date(Date.now() + OTP_TTL_MS),
+    expiresAt,
   });
   await sendOtpEmail(email, code, purpose);
+  return { expiresAt };
 }
 
 const authRoutes: FastifyPluginAsync = async (app) => {
@@ -73,10 +75,10 @@ const authRoutes: FastifyPluginAsync = async (app) => {
         .values({ email, passwordHash })
         .returning({ id: users.id, email: users.email, isEmailVerified: users.isEmailVerified });
 
-      await issueOtp(user.id, user.email, 'register');
+      const { expiresAt } = await issueOtp(user.id, user.email, 'register');
 
       const tokens = await issueTokenPair(user.id);
-      return reply.code(201).send({ ...tokens, user });
+      return reply.code(201).send({ ...tokens, user, otpExpiresAt: expiresAt.toISOString() });
     },
   );
 
@@ -174,17 +176,19 @@ const authRoutes: FastifyPluginAsync = async (app) => {
         const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
         if (!user) return reply.code(401).send({ error: 'Yetkilendirme gerekli' });
 
-        await issueOtp(user.id, user.email, 'register');
-        return reply.send({ ok: true });
+        const { expiresAt } = await issueOtp(user.id, user.email, 'register');
+        return reply.send({ ok: true, otpExpiresAt: expiresAt.toISOString() });
       }
 
-      // purpose === 'reset': hesap var mı yok mu sızdırmamak için her durumda aynı yanıt dönülür.
+      // purpose === 'reset': hesap var mı yok mu sızdırmamak için her durumda aynı yanıt
+      // (aynı otpExpiresAt hesaplama biçimi dahil) dönülür.
       const email = parsed.data.email.toLowerCase();
       const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (user && user.status === 'active') {
-        await issueOtp(user.id, user.email, 'reset');
-      }
-      return reply.send({ ok: true });
+      const expiresAt =
+        user && user.status === 'active'
+          ? (await issueOtp(user.id, user.email, 'reset')).expiresAt
+          : new Date(Date.now() + OTP_TTL_MS);
+      return reply.send({ ok: true, otpExpiresAt: expiresAt.toISOString() });
     },
   );
 

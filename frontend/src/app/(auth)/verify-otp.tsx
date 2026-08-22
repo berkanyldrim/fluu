@@ -16,17 +16,25 @@ import { useAuthStore } from '@/store/auth-store';
 import { maskEmail } from '@/utils/auth-validation';
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN_SECONDS = 47;
+
+function secondsUntil(isoDate?: string) {
+  if (!isoDate) return 0;
+  return Math.max(0, Math.round((new Date(isoDate).getTime() - Date.now()) / 1000));
+}
 
 export default function VerifyOtpScreen() {
   const theme = useTheme();
-  const { purpose, email } = useLocalSearchParams<{ purpose?: string; email?: string }>();
+  const { purpose, email, otpExpiresAt } = useLocalSearchParams<{
+    purpose?: string;
+    email?: string;
+    otpExpiresAt?: string;
+  }>();
   const isReset = purpose === 'reset';
   const authorizedRequest = useAuthStore((state) => state.authorizedRequest);
   const markEmailVerified = useAuthStore((state) => state.markEmailVerified);
 
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
-  const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_SECONDS);
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(otpExpiresAt));
   const [error, setError] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
@@ -66,13 +74,14 @@ export default function VerifyOtpScreen() {
     if (secondsLeft > 0) return;
     setError(undefined);
     try {
+      let result: { otpExpiresAt: string };
       if (isReset) {
         if (!email) throw new ApiError(400, 'E-posta bulunamadı, baştan dene');
-        await sendResetOtpRequest(email);
+        result = await sendResetOtpRequest(email);
       } else {
-        await authorizedRequest((token) => sendRegisterOtpRequest(token));
+        result = await authorizedRequest((token) => sendRegisterOtpRequest(token));
       }
-      setSecondsLeft(RESEND_COOLDOWN_SECONDS);
+      setSecondsLeft(secondsUntil(result.otpExpiresAt));
       setDigits(Array(OTP_LENGTH).fill(''));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene');
