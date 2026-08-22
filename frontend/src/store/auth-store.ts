@@ -6,6 +6,7 @@ import {
   AuthUser,
   getMeRequest,
   loginRequest,
+  logoutRequest,
   Profile,
   refreshRequest,
   registerRequest,
@@ -94,6 +95,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   async logout() {
+    const refreshToken = get().refreshToken;
+    if (refreshToken) {
+      // Sunucudaki refresh token'ı geçersizleştirmek best-effort — istek başarısız olsa bile
+      // (ör. offline) kullanıcı cihazında oturumu kapatabilmeli, engelleme.
+      await logoutRequest(refreshToken).catch(() => {});
+    }
     await clearTokens();
     set({ status: 'unauthenticated', accessToken: null, refreshToken: null, user: null, profile: null });
   },

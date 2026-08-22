@@ -10,7 +10,7 @@ export default function AuthLayout() {
   // Zaten tam kayıtlı bir kullanıcı manuel olarak /login gibi bir auth ekranına giderse
   // (auth) grubu dışına, doğrudan (tabs)'a yönlendirilir.
   if (status === 'authenticated' && user?.isEmailVerified && profile) {
-    return <Redirect href="/" />;
+    return <Redirect href="/chats" />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;
