@@ -43,6 +43,10 @@ export function refreshRequest(refreshToken: string) {
   return apiRequest<AuthTokens>('/auth/refresh', { method: 'POST', body: { refreshToken } });
 }
 
+export function logoutRequest(refreshToken: string) {
+  return apiRequest<{ ok: true }>('/auth/logout', { method: 'POST', body: { refreshToken } });
+}
+
 export function sendRegisterOtpRequest(accessToken: string) {
   return apiRequest<{ ok: true }>('/auth/send-verification-otp', {
     method: 'POST',

@@ -140,6 +140,25 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   );
 
   app.post(
+    '/auth/logout',
+    { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } },
+    async (request, reply) => {
+      const parsed = refreshSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'Geçersiz istek' });
+      }
+
+      const tokenHash = hashOpaqueToken(parsed.data.refreshToken);
+      await db
+        .update(refreshTokens)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(refreshTokens.tokenHash, tokenHash), isNull(refreshTokens.revokedAt)));
+
+      return reply.send({ ok: true });
+    },
+  );
+
+  app.post(
     '/auth/send-verification-otp',
     { config: { rateLimit: { max: 3, timeWindow: '10 minutes' } } },
     async (request, reply) => {
