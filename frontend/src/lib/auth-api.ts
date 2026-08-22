@@ -26,7 +26,7 @@ export type AuthTokens = {
 };
 
 export function registerRequest(email: string, password: string) {
-  return apiRequest<AuthTokens & { user: AuthUser }>('/auth/register', {
+  return apiRequest<AuthTokens & { user: AuthUser; otpExpiresAt: string }>('/auth/register', {
     method: 'POST',
     body: { email, password },
   });
@@ -48,7 +48,7 @@ export function logoutRequest(refreshToken: string) {
 }
 
 export function sendRegisterOtpRequest(accessToken: string) {
-  return apiRequest<{ ok: true }>('/auth/send-verification-otp', {
+  return apiRequest<{ ok: true; otpExpiresAt: string }>('/auth/send-verification-otp', {
     method: 'POST',
     body: { purpose: 'register' },
     accessToken,
@@ -56,7 +56,7 @@ export function sendRegisterOtpRequest(accessToken: string) {
 }
 
 export function sendResetOtpRequest(email: string) {
-  return apiRequest<{ ok: true }>('/auth/send-verification-otp', {
+  return apiRequest<{ ok: true; otpExpiresAt: string }>('/auth/send-verification-otp', {
     method: 'POST',
     body: { purpose: 'reset', email },
   });

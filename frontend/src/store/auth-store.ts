@@ -26,7 +26,7 @@ type AuthState = {
   profile: Profile | null;
 
   hydrate: () => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<{ otpExpiresAt: string }>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<string | null>;
@@ -85,6 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       profile: null,
       status: 'authenticated',
     });
+    return { otpExpiresAt: result.otpExpiresAt };
   },
 
   async login(email, password) {

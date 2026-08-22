@@ -26,8 +26,11 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      await sendResetOtpRequest(normalizedEmail);
-      router.push({ pathname: '/verify-otp', params: { purpose: 'reset', email: normalizedEmail } });
+      const { otpExpiresAt } = await sendResetOtpRequest(normalizedEmail);
+      router.push({
+        pathname: '/verify-otp',
+        params: { purpose: 'reset', email: normalizedEmail, otpExpiresAt },
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene');
     } finally {

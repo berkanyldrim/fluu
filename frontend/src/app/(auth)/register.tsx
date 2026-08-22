@@ -41,8 +41,11 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      await register(normalizedEmail, password);
-      router.push({ pathname: '/verify-otp', params: { purpose: 'register', email: normalizedEmail } });
+      const { otpExpiresAt } = await register(normalizedEmail, password);
+      router.push({
+        pathname: '/verify-otp',
+        params: { purpose: 'register', email: normalizedEmail, otpExpiresAt },
+      });
     } catch (err) {
       setErrors({ email: err instanceof ApiError ? err.message : 'Bir şeyler ters gitti, tekrar dene' });
     } finally {
