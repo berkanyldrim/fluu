@@ -1,0 +1,26 @@
+meta {
+  name: Send OTP (reset)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/auth/send-verification-otp
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "purpose": "reset",
+    "email": "{{email}}"
+  }
+}
+
+script:post-response {
+  if (res.body.otpExpiresAt) bru.setVar("otpExpiresAt", res.body.otpExpiresAt);
+}
+
+docs {
+  see send-otp-reset.md
+}

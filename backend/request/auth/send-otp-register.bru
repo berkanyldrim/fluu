@@ -1,0 +1,29 @@
+meta {
+  name: Send OTP (register)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/auth/send-verification-otp
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "purpose": "register"
+  }
+}
+
+script:post-response {
+  if (res.body.otpExpiresAt) bru.setVar("otpExpiresAt", res.body.otpExpiresAt);
+}
+
+docs {
+  see send-otp-register.md
+}

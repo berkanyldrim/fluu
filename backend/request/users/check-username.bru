@@ -1,0 +1,19 @@
+meta {
+  name: Check Username
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/users/check-username?u=testuser
+  body: none
+  auth: none
+}
+
+params:query {
+  u: testuser
+}
+
+docs {
+  see check-username.md
+}

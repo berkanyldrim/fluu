@@ -1,0 +1,26 @@
+meta {
+  name: Verify OTP (register)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/auth/verify-email
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "purpose": "register",
+    "code": "123456"
+  }
+}
+
+docs {
+  see verify-otp-register.md
+}

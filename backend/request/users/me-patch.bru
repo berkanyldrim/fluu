@@ -1,0 +1,31 @@
+meta {
+  name: Update Me
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseUrl}}/users/me
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "firstName": "Test",
+    "lastName": "User",
+    "username": "testuser",
+    "birthDate": "2000-01-01",
+    "gender": "other",
+    "country": "Türkiye",
+    "city": "İstanbul"
+  }
+}
+
+docs {
+  see me-patch.md
+}
